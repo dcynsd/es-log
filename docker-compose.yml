@@ -1,0 +1,93 @@
+version: "3"
+services:
+  es-master:
+    container_name: es-master
+    hostname: es-master
+    image: elasticsearch:7.9.0
+    restart: always
+    ports:
+      - 9200:9200
+      - 9300:9300
+    volumes:
+      - ./elasticsearch/master/conf/es-master.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - ./elasticsearch/master/data:/usr/share/elasticsearch/data
+      - ./elasticsearch/master/logs:/usr/share/elasticsearch/logs
+    # environment:
+      # - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+
+  # es-slave1:
+  #   container_name: es-slave1
+  #   image: elasticsearch:7.9.0
+  #   restart: always
+  #   ports:
+  #     - 9201:9200
+  #     - 9301:9300
+  #   volumes:
+  #     - ./elasticsearch/slave1/conf/es-slave1.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+  #     - ./elasticsearch/slave1/data:/usr/share/elasticsearch/data
+  #     - ./elasticsearch/slave1/logs:/usr/share/elasticsearch/logs
+  #   environment:
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+
+  es-head:
+    container_name: es-head
+    image: mobz/elasticsearch-head:5
+    restart: always
+    ports:
+      - 9100:9100
+    depends_on:
+      - es-master
+      # - es-slave1
+
+  kibana:
+    container_name: kibana
+    hostname: kibana
+    image: kibana:7.9.0
+    restart: always
+    ports:
+      - 5601:5601
+    volumes:
+      - ./kibana/conf/kibana.yml:/usr/share/kibana/config/kibana.yml
+    environment:
+      - elasticsearch.hosts=http://es-master:9200
+    depends_on:
+      - es-master
+      # - es-slave1
+
+  filebeat:
+    container_name: filebeat
+    hostname: filebeat
+    image: store/elastic/filebeat:7.9.0
+    restart: always
+    volumes:
+      - ./filebeat/conf/filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - ./filebeat/logs:/usr/share/filebeat/logs
+      - ./filebeat/data:/usr/share/filebeat/data
+      # 映射到容器中[作为数据源]
+      - /Users/dcy/Site/ecommerce/storage/logs/:/home/project/ecommerce/logs
+      - /Users/dcy/Site/usercenter/storage/logs/:/home/project/usercenter/logs
+    links:
+      - logstash
+    depends_on:
+      - es-master
+      # - es-slave1
+
+  logstash:
+    container_name: logstash
+    hostname: logstash
+    image: logstash:7.9.0
+    command: logstash -f ./conf/logstash-filebeat.conf
+    restart: always
+    volumes:
+      - ./logstash/conf/logstash-filebeat.conf:/usr/share/logstash/conf/logstash-filebeat.conf
+    environment:
+      - elasticsearch.hosts=http://es-master:9200
+      - xpack.monitoring.elasticsearch.hosts=http://es-master:9200
+      # - xpack.monitoring.enabled=true
+      # - xpack.monitoring.elasticsearch.username=logstash_system
+      # - xpack.monitoring.elasticsearch.password=rVs9QEnrKm0VB8CV0CDE
+    ports:
+      - 5044:5044
+    depends_on:
+      - es-master
+      # - es-slave1
