@@ -1,0 +1,37 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    # 当前目录下的所有.log文件，注意：这里的地址是 filebeat 容器里面的地址
+    - /home/project/*/logs/*.log
+
+  multiline.pattern: '^\[[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+  multiline.timeout: 5s
+  scan_frequency: 5s
+
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+
+setup.template.settings:
+  index.number_of_shards: 1
+
+setup.dashboards.enabled: false
+
+setup.kibana:
+  host: "http://kibana:5601"
+
+# 不直接传输至ES
+# output.elasticsearch:
+#   hosts: ["http://es-master:9200"]
+#   index: "filebeat-%{[beat.version]}-%{+yyyy.MM.dd}"
+
+# 日志发送到 logstash 进行分析保存
+output.logstash:
+  hosts: ["logstash:5044"]
+
+processors:
+  - add_host_metadata: ~
+  - add_cloud_metadata: ~
